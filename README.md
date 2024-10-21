@@ -37,7 +37,7 @@ portfolio/lego-piece-detection-ai
 
 - *Description*: A work-in-progress AI application that helps users identify LEGO pieces from images and add them to an inventory. The app also suggests potential LEGO creations by connecting to a database of LEGO sets.
 - *Tools and Technologies*: Python, Computer Vision, Machine Learning, TensorFlow, Database Management
-[LEGO Piece Detection AI](portfolio/lego-piece-detection-ai)
+[LEGO Piece Detection AI](https://github.com/jenototh/portfolio/tree/main/lego-piece-detection-ai)
 ---
 
 Feel free to explore the folders above for more details on each project!
