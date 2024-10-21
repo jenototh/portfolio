@@ -10,15 +10,12 @@ Welcome to my portfolio! Here you'll find various projects I've worked on during
 
 ## University Projects
 
-### Theses
 
-
-
-#### [BSc Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/bsc_thesis.pdf)
+### [Bachelor's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/bsc_thesis.pdf)
 
 Asd
 
-#### [MSc Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/msc_thesis_no_appendix.pdf)
+### [Master's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/msc_thesis_no_appendix.pdf)
 
 Asd
 
