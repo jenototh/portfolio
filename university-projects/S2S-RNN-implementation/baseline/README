@@ -1,0 +1,16 @@
+HOW TO REPRODUCE GROUP RESULTS
+EXP1:
+Begin by selecting an architecture (overall best / task specific best) at the top of Exp1/experiment1.ipynb
+Then simply run experiment1.ipynb.
+
+EXP2:
+Begin by selecting an architecture (overall best / task specific best) at the top of exp2.ipynb
+Then simply run exp2.ipynb five times.
+
+EXP3:
+Run Exp3/full_lstm_training.ipynb for the LTURN-specific models and Exp3/full_gru_training.ipynb for the JUMP-specific models.
+
+GROUP PRESENTATION SLIDES IN ATNLPaper.pdf
+
+
+HOW TO REPRODUCE INDIVIDUAL RESULTS
