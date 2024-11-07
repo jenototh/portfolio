@@ -13,20 +13,16 @@ Welcome to my portfolio! Here you'll find various projects I've worked on during
 
 ### [Bachelor's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/bsc_thesis.pdf)
 
-Asd
+
 
 ### [Master's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/msc_thesis_no_appendix.pdf)
 
-Asd
+
 
 ### [Uncovering Sentiment Patterns in ChatGPT](https://github.com/jenototh/portfolio/tree/main/university-projects/uncovering-sentiment-patterns-in-chatgpt)
 
-Asd
+
 
 ## [LEGO Piece Detection AI](https://github.com/jenototh/portfolio/tree/main/lego-piece-detection-ai)
 
-Asd
 
----
-
-Feel free to explore the folders above for more details on each project!
