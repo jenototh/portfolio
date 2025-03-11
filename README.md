@@ -28,24 +28,28 @@ My Bachelor's Thesis was a qualitative study examinig the changes in stock marke
 ### [Uncovering Sentiment Patterns in ChatGPT](https://github.com/jenototh/portfolio/tree/main/university-projects/uncovering-sentiment-patterns-in-chatgpt)
 
 Tools used: Python (PyTorch, nltk, deep_translator, top2vec, word2vec)
+
 This group project was for my Natural Language Processing and Text Analytics course in the spring semester of 2023. This was soon after the introduction and prominence of ChatGPT, and we were interested in quantifying opinions about the tool. A dataset of 66,000 scraped tweets regarding ChatGPT was used, and after preprocessing and translating all to English, we conducted a thorough sentiment analysis combined with topic modeling.
 
 
 ### [ML Classifiers to Detect Gender and Age Based on Chest X-Ray Images](https://github.com/jenototh/portfolio/tree/main/university-projects/chest-x-ray-classifier)
 
 Tools used: Python (TensorFlow, Scikit-learn)
+
 This project was for my Data Mining, Machine Learning, and Deep Learning course. We used a dataset of over 10,000 high quality, labeled, X-Ray Images in order to build a classifier which deterines patients' age and gender. We tested a number of preprocessing steps, with different kernel sizes, using normalization, edge enhancement and Gaussian blur. After finding the best combination of preprocessing, we built different Convolutional Neural Networks using Support Vector Machines for classification, comparing different CNNs in order to maximize accuracy.
 
 
 ### [Analyzing and Forecasting Inflation Rates in Hungary, Italy and Spain](https://github.com/jenototh/portfolio/tree/main/university-projects/forecasting-inflation)
 
 Tools used: R (tidyverse, forecast, tseries)
+
 This project was for my Predictive Analytics course. In it, I analyzed 3 European countries' inflation statistics from 1970 to 2022 in order to build a model for future forecasting. I used Autoregressive Integrated Moving Average (ARIMA) and Vector Autoregression (VAR) to forecast for the following 8 years. The project was also appended with important macroeconomic events of the countires in order to finetune the models.
 
 
 ### [Predicting Phishing URLs Using Random Forest and Neural Network Classifiers](https://github.com/jenototh/portfolio/tree/main/university-projects/phishing-url-detection)
 
 Tools used: Python (TensorFlow, Scikit-learn)
+
 This project was for my Cybersecurity Foundations and Analytics. 
 
 
