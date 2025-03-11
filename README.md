@@ -7,6 +7,7 @@ Welcome to my portfolio! Here you'll find various projects I've worked on during
   - [Theses](#theses)
   - [Uncovering Sentiment Patterns in ChatGPT](#uncovering-sentiment-patterns-in-chatgpt)
   - [ML Classifiers to Detect Gender and Age Based on Chest X-Ray Images](#ml-classifiers-to-detect-gender-and-age-based-on-chest-x-ray-images)
+  - [Predicting Phishing URLs Using Random Forest and Neural Network Classifiers](#predicting-phishing-urls-using-random-forest-and-neural-network-classifiers)
 - [LEGO Piece Detection AI](#lego-piece-detection-ai)
 
 ## University Projects
