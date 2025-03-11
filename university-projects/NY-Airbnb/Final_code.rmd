@@ -1,0 +1,678 @@
+---
+title: "Data Science Project - First draft"
+author: "Rebeka Éva Cook (ZN5K7X), Jeno Tóth (JSK7AT)"
+date: "12/15/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# Loading required libraries:
+library(rlang)
+library(data.table)
+library(ggplot2)
+library(stringr)
+library(stargazer)
+library(Hmisc)
+library(dplyr)
+library(magrittr)
+library(tidytext)
+library(glmnet)
+library(purrr)
+library(Metrics)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(plotly)
+library(randomForest)
+library(rattle)
+library(sp)
+library(rgdal)
+library(tigris)
+library(httr)
+library(broom)
+```
+
+
+```{r, include=FALSE}
+# Loading the data:
+data <- fread("listings.csv")
+attach(data)
+```
+
+```{r, include=FALSE}
+# Cleaning the dataset:
+
+# Converting prices to numbers:
+data$price <- as.numeric(str_remove_all(data$price,"[$,]"))
+
+# Removing NA prices, since as our explanitory variable, missing prices makes no sense:
+data <- data[!is.na(data$price),]
+
+# Converting the host response rate to numbers:
+data$host_response_rate <-
+  as.numeric(str_remove_all(data$host_response_rate,"[%,]"))
+
+#Converting the host acceptance rate to numbers:
+data$host_acceptance_rate <-
+  as.numeric(str_remove_all(data$host_acceptance_rate,"[%,]"))
+
+#Converting t/f variables into dummy variables:
+data[,":="(host_is_superhost=ifelse(host_is_superhost=="f",0,1))]
+data[,":="(host_has_profile_pic=ifelse(host_has_profile_pic=="f",0,1))]
+data[,":="(host_identity_verified=ifelse(host_identity_verified=="f",0,1))]
+
+#Changing room types to 4 dummy variables:
+data$is_entire_home_apt <- data[,ifelse(room_type=="Entire home/apt",1,0)]
+data$is_private_room <- data[, ifelse(room_type=="Private room",1,0)]
+data$is_hotel_room <- data[, ifelse(room_type=="Hotel room",1,0)]
+data$is_shared_room <- data[, ifelse(room_type=="Shared room",1,0)]
+
+# Changing host_listings_count so that there are no 0s and NAs, based on the assumption that NA probably means 0:
+host_listings_count[is.na(host_listings_count)] <- 1
+host_listings_count[host_listings_count == 0] <- 1
+
+# Bathrooms is all NA's, so we must transform it from bathroom_text variable:
+data$bathrooms <- as.numeric(substring(data$bathrooms_text,1,1))
+
+# If the following variables are missing, we can assume that they are 0 (unfurnished appartment, or just a room for example):
+data$beds[is.na(data$beds)] <- 0
+data$bedrooms[is.na(data$bedrooms)] <- 0
+data$bathrooms[is.na(data$bathrooms)] <- 0
+
+# If the rates are missing, we cannot assume that they are 0, so we replace missing observations with means:
+data$host_acceptance_rate[is.na(data$host_acceptance_rate)] <- mean(data$host_acceptance_rate, na.rm=TRUE)
+data$host_response_rate[is.na(data$host_response_rate)] <- mean(data$host_response_rate, na.rm=TRUE)
+
+# If rating is missing, we can "assume the worst":
+data$review_scores_rating[is.na(data$review_scores_rating)] <- 0
+
+# If host listings is missing, we can assume the given listing is their only one:
+data$host_listings_count[is.na(data$host_listings_count)] <- 1
+```
+
+```{r, include=FALSE}
+# We created three new important variables:
+# -How long someone has been a host;
+# -How far the Airbnb is from Times Square (city Centre);
+# -A sentiment score based on the words of the Airbnb decription.
+
+# How many days has someone been a host:
+today <- as.Date("2021-12-03")
+data$host_since_days <- as.numeric(today - as.Date(data$host_since))
+
+# If host_since_days is missing, we can assume they are a new host:
+data$host_since_days[is.na(data$host_since_days)] <- 1
+ 
+# Determining the distance from Times Square:
+ts_lat = 40.758896/(180/pi)
+ts_long = -73.98513/(180/pi)
+data$distance <- 6371 * acos((sin(ts_lat) * sin(data$latitude/(180/pi))) + 
+                               cos(ts_lat) * cos(data$latitude/(180/pi)) * 
+                               cos(ts_long - data$longitude/(180/pi)))
+
+# Obtaining sentiment scores
+sentiment_scores <- tidytext::get_sentiments(lexicon = "bing") %>%
+  data.table() %>%
+  .[, sentiment := ifelse(sentiment == "positive", 1, -1)]
+
+# Sentiment scores of listings:
+listings_sentiments <- data %>%
+  .[, .(id, description, price)] %>%
+  unnest_tokens(input = "description", output = "word", drop = FALSE) %>%
+  merge(sentiment_scores, by = "word") %>%
+  .[, .(sentiment_score = sum(sentiment), price = mean(price)), by = c("id")]
+
+# Putting the values to the original data table:
+# As we do not want to lose data points by merging, we have to include 0 sentiment scores for listings that did not receive sentiment scores:
+missing_sentiments <- c()
+for (i in 1:length(data$id)) {
+  if (!is.element(data$id[i], listings_sentiments$id)) {
+    missing_sentiments <- append(missing_sentiments, c(data$id[i], 0, data$price[i]))
+  }
+}
+
+# (In case the code wouldn't run, may need to change nrow to 2333)
+missing_sentiments_data <- setNames(data.frame(matrix(ncol = 3, nrow = 2335)),
+                                    c("id", "sentiment_score", "price"))
+missing_sentiments_data$id <- missing_sentiments[seq(1, length(missing_sentiments), 3)]
+missing_sentiments_data$sentiment_score <- missing_sentiments[seq(2, length(missing_sentiments), 3)]
+missing_sentiments_data$price <- missing_sentiments[seq(3, length(missing_sentiments), 3)]
+
+listings_sentiments <- rbind(listings_sentiments, missing_sentiments_data)
+
+data <- merge(data, listings_sentiments, by = "id")
+
+# The name of the price variable changed, we need to reverse this:
+colnames(data)[40] <- "price"
+```
+
+```{r, include=FALSE}
+# Choosing variables from multiple similar
+
+# Host listing variables seem similar. If they are highly correlated, we will not need them all
+host_listings <- select(data,
+                        "host_listings_count",
+                        "calculated_host_listings_count",
+                        "calculated_host_listings_count_shared_rooms",
+                        "calculated_host_listings_count_private_rooms",
+                        "calculated_host_listings_count_entire_homes")
+
+rcorr(as.matrix(host_listings)) # they are highly correlated, so we will only use host_listings_count
+
+# Host variables also seem similar
+host_char <- select(data,"host_since_days",
+                         "host_response_rate",
+                         "host_acceptance_rate",
+                         "host_is_superhost",
+                         "host_listings_count",
+                         "host_has_profile_pic",
+                         "host_identity_verified")
+
+rcorr(as.matrix(host_char)) # these are less correlated, the inclusion of all is justified
+```
+
+```{r, include=FALSE}
+# Putting all the "useful" variables into a separate dataframe:
+data_variables <- data[, c("price",
+                           "host_since_days",
+                           "host_response_rate",
+                           "host_acceptance_rate",
+                           "host_is_superhost",
+                           "host_listings_count",
+                           "host_has_profile_pic",
+                           "host_identity_verified",
+                           "is_entire_home_apt",
+                           "is_private_room",
+                           "is_hotel_room",
+                           "is_shared_room",
+                           "accommodates",
+                           "bathrooms",
+                           "bedrooms",
+                           "beds",
+                           "number_of_reviews_ltm",
+                           "review_scores_rating",
+                           "distance",
+                           "sentiment_score"
+                           )
+                       ]
+
+# Some other variables could be significant, and perhaps further could be added. We recognize that manifold factors contribute to listings prices, however examining all of them would be out of scope for our analysis. Therefore, we are restricting it to these variables for interprettation and transparancy. 
+```
+
+
+# Our dependent variable: Price
+
+**Our most important variable is the price.**
+
+To gain more insight, first we can look at the **descriptive statistics** of the price variable.
+
+```{r, include=TRUE}
+# Summary statistics of price:
+summary(data$price)
+```
+
+The **disrtibution** of price is also of interest.
+
+```{r, include=FALSE}
+# Creating a dataset with only price variables smaller than the 95th percentile (to eliminate outliers) for transparent graphs:
+data_excl <- data[data$price < quantile(data$price,.95),]
+```
+
+```{r, include=TRUE}
+# Creating box plot
+ggplot(data_excl, aes(x=price)) + 
+  geom_boxplot(notch=TRUE) +
+  coord_flip() +
+  geom_boxplot(fill = "skyblue", color = "black", size=0.5, outlier.color = "darkslategrey", outlier.size = 2) +
+  labs(title = expression(bold("Distribution of price")),
+       subtitle = "New York City Airbnb prices",
+       x = "Price") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+# Examination of our explanitory variables
+
+## Location
+
+Our basic hypothesis is that certain areas of the city play a huge role in determining price. Consumers most likely use Airbnb's as cheap accommodation on their holiday, in this case shorter commuting time from the centre may be more important than the housing itself. We choose Times Square as the centre.
+
+```{r, include=TRUE}
+# Number of listings by borough:
+ggplot(data, aes(x = neighbourhood_group_cleansed)) +
+  geom_bar(fill = "skyblue", color = "black", size=0.5) +
+  labs(
+    title = expression(bold("Listings by borough")),
+    subtitle = "Number of Airbnb listings in New York City",
+    y = "Number of listings",
+    x = "Borough"
+  )
+```
+
+We can see that the number of listings change drastically, however, this information is not very useful. Luckily, there were coordinates given, so instead, we created a new variable measuring the air line distance from the city center (in our case, Times Square)
+
+```{r, include=TRUE}
+# Distribution of new distance variable
+ggplot(data, aes(x = distance)) +
+  geom_histogram(colour="black", fill="skyblue") +
+  labs(
+    title = expression(bold("Distribution of distance")),
+    subtitle = "Distance of New York City Airbnb's from Times Square",
+    y = "Number of listings",
+    x = "Distance" 
+  )
+```
+
+Based on this histogram, we can see that the distribution is left-peaked and right-skewed. Most listings are within 10 kilometers of Times Square.
+
+```{r, include=FALSE}
+# Preparing heat map
+r <- GET('https://data.beta.nyc/dataset/68c0332f-c3bb-4a78-a0c1-32af515892d6/resource/7c164faa-4458-4ff2-9ef0-09db00b509ef/download/42c737fd496f4d6683bba25fb0e86e1dnycboroughboundaries.geojson')
+nyc_neighborhoods <- readOGR(content(r,'text'), 'OGRGeoJSON', verbose = F)
+nyc_neighborhoods_df <- tidy(nyc_neighborhoods)
+```
+
+```{r,include=TRUE}
+# Creating heat map of price thoughout NYC
+ggplot() + 
+  geom_polygon(data=nyc_neighborhoods_df, aes(x=long, y=lat, group=group), fill = NA, color = "black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  labs(
+    title = "Mapped Airbnb prices",
+    x = "",
+    y = ""
+  ) +
+  geom_point(aes(x = data_excl$longitude, y = data_excl$latitude, color = data_excl$price), size = 0.1) +
+  scale_colour_gradient(low = "cyan", high = "navyblue", guide = "colourbar", name = "Price") +
+  geom_point(aes(x = -73.98513, y = 40.758896), color = "red", size = 2)
+```
+
+We can also check how distance affects prices.
+
+```{r, include=TRUE}
+# Binned scatter plot of distance and prices
+ggplot(data_excl, aes(distance, price)) +
+  geom_bin2d(bins = 100) +
+    stat_smooth(method = "auto", col = "red", size = 1) +
+    labs(
+    title = expression(bold("Distance and Prices")),
+    subtitle = "The price of New York City Airbnb's plotted against their distance from Times Square",
+    y = "Price",
+    x = "Distance",
+    fill = "Number of listings"
+  )
+```
+
+Based on the scatter plot above, we can see that the further we get from the centre, the cheaper the listings (for the closest 15 kilometres). For listings far away, this changes. This may be explained by the fact that such listings are not cheap accommodations used to be close to the centre, but they have other redeeming qualities dictating higher prices.
+
+## Room type
+
+Apart from the distance from the centre, the characteristics of the given listing also play a large roll. 
+Therefore, We further look into these variables
+
+```{r, include=TRUE}
+# Number of listings by room type:
+ggplot(data, aes(x = room_type)) +
+  geom_bar(colour="black", fill="skyblue") +
+  labs(
+    title = expression(bold("Listings by type")),
+    subtitle = "The number of New York City Airbnb listings",
+    y = "Number of listings",
+    x = "Type"
+  )
+
+# Entire homes and apartments, and private rooms are most common
+```
+
+
+We can also examine how price is related to room type
+
+```{r,include=TRUE}
+# Distribution of distance
+
+# Distribution of distance:
+ggplot(data_excl, aes(x = price, fill= room_type)) +
+  geom_histogram(colour="black") +
+  labs(
+    title = expression(bold("Price by listing type")),
+    subtitle = "The price of New York City Airbnb listings",
+    y = "Number of listings",
+    x = "Price",
+    fill = "Type"
+  )
+
+# Clearly entire homes and apartments are the most expensive, but private rooms can also be expensive
+```
+
+## Review related variables
+
+These can be interesting, as intuitively, the better the reviews, the higher the price could be as the listing must be better. Lets check this.
+
+```{r,include=FALSE}
+# Creating a variable for good reviews for graph
+data_excl$good_review <- ifelse(data_excl$review_scores_rating >= 4,"Good review","Poor review")
+data_excl$good_review[is.na(data_excl$good_review)] <- "Poor review"
+```
+
+```{r,include=TRUE}
+# Distribution of distance:
+ggplot(data_excl, aes(x = price, fill=good_review)) +
+  geom_histogram(colour="black") +
+  labs(
+    title = expression(bold("Price based on review")),
+    subtitle = "The price of New York City Airbnb listings by the quality of their review",
+    y = "Number of listings",
+    x = "Price",
+    fill = "Type of review"
+  )
+# Clearly more expensive listings had a higher price
+```
+
+```{r,include=FALSE}
+# These values seem significantly different, but lets be sure with a t-test
+# For a t-test, we have to change the variable into a dummy variable:
+# 0 indicates poor reviews, while 1 means good reviews.
+data_excl$good_review <- ifelse(data_excl$review_scores_rating >= 4,1,0)
+data_excl$good_review[is.na(data_excl$good_review)] <- 0
+
+# Conducting t-tests
+t.test(data_excl$price, data_excl$good_review,
+       conf.level = 0.99) # they are significantly different
+```
+
+## Host-characteristics
+
+The four significant variables from our original regression related to host characteristics are host_since_days, host_acceptance_rate, host_listings_count, and sentiment_score. We can check this with a linear regression.
+
+
+```{r, include=FALSE}
+# creating an extra variable for whether the host is a professional (only one listing, or more)
+data_variables$host_is_professional <- data[,ifelse(host_listings_count==1,0,1)]
+```
+
+```{r, include=TRUE,warning=FALSE}
+host <- lm(data = data_variables, price ~ host_since_days + host_acceptance_rate + host_is_professional + sentiment_score)
+stargazer(host,type="text")
+```
+
+
+
+## Some linear regression models for insight
+
+```{r, include=TRUE,warning=FALSE}
+# Running linear regression models with different variables:
+reg_basic <- lm(data=data_variables,price ~ distance)
+reg_controls <- lm(data = data_variables, price ~ accommodates + beds + bedrooms +
+                          bathrooms + is_entire_home_apt + is_private_room + is_hotel_room)
+reg_host <- lm(data = data_variables, price ~ host_since_days + host_acceptance_rate +
+                      host_listings_count + sentiment_score)
+reg_all <- lm(data = data_variables, price ~ .)
+
+# Presenting all in a table
+stargazer(reg_basic, reg_controls, reg_all,type="text")
+
+# Comparing the models by the Akaike Infomation Criterion
+AIC(reg_basic, reg_controls, reg_host, reg_all) # clearly the linear regression model with all variables is the best.
+
+#However, models must be examined further
+```
+
+
+## Predictions
+
+```{r,include=FALSE}
+# First we estimate a baseline model with distance
+
+model_basic <- glm(formula = price ~ distance, family =gaussian, data = data_variables)
+summary(model_basic)
+
+
+predictions_basic_model <- rep(
+  data_variables[, mean(price)], data_variables[, .N]
+)
+
+intercept <- model_basic$coefficients[1]
+slope <- model_basic$coefficients[2]
+
+predictions_min_model <- predict.glm(
+  model_basic, newdata = data_variables
+)
+
+# Root mean squared error
+rmse(data_variables$price,predictions_min_model)
+```
+
+```{r,include=TRUE}
+# Plotting the baseline model
+ggplot(data_variables, aes(x = distance, y = price)) +
+    geom_point(alpha = 0.05, color="skyblue") +
+    geom_abline(intercept = intercept, slope = slope, color = "red", size = 1) +
+    geom_hline(yintercept = mean(predictions_basic_model), color = "black", size = 1) +
+    labs(
+      title = expression(bold("Minimal model fit for price")),
+      subtitle = "<span style = 'color: black;'>Benchmark</span> vs <span style = 'color: red;'>Minimal Model</span>",
+      y = "Price",
+      x = "Distance" 
+    ) +
+    ylim(0,1000) +
+    theme_classic() +
+    theme(text = element_text(size = 20)) +
+    theme(plot.subtitle = ggtext::element_markdown())
+```
+
+
+**Trying different predictive models and comparing them based on their RMSE**
+
+```{r,include=FALSE}
+# create train and test data
+set.seed(1215)
+train_index <- sample(1:nrow(data_variables), nrow(data_variables) * 0.7)
+data_train <- data_variables[train_index]
+data_test <- data_variables[-train_index]
+```
+
+```{r,include=FALSE}
+# Model formulae (all include distance as it is our baseline)
+
+# Model 1: with all explanatory variables
+model_formula1 <- as.formula(price ~ host_since_days + host_response_rate + host_acceptance_rate + host_is_superhost +
+                                      host_listings_count + host_has_profile_pic + host_identity_verified + host_is_professional +
+                                      is_entire_home_apt + is_private_room + is_hotel_room + is_shared_room +
+                                      accommodates + bathrooms + bedrooms + beds +
+                                      number_of_reviews_ltm + review_scores_rating + sentiment_score +
+                                      distance)
+
+# Model 2: with variables related to the room type
+model_formula2 <- as.formula(price ~ is_entire_home_apt + is_private_room +
+                                    is_hotel_room + is_shared_room +accommodates +
+                                    bathrooms + bedrooms + beds + distance)
+
+# Model 3: with host related characteristics
+model_formula3 <- as.formula(price ~ host_response_rate + host_acceptance_rate +
+                                      host_is_superhost + host_listings_count +
+                                      host_has_profile_pic + host_identity_verified +
+                                      host_is_professional + host_since_days + distance)
+
+# Model 4: with review related variables
+model_formula4 <- as.formula(price ~ number_of_reviews_ltm + review_scores_rating + sentiment_score + distance)
+```
+
+
+```{r,include=FALSE}
+# Using a linear regression model to train the model
+lm_model1 <- lm(data = data_train, model_formula1)
+lm_model2 <- lm(data = data_train, model_formula2)
+lm_model3 <- lm(data = data_train, model_formula3)
+lm_model4 <- lm(data = data_train, model_formula4)
+
+data_test[, lm_predict1 := predict(lm_model1, data_test)]
+data_test[, lm_predict2 := predict(lm_model2, data_test)]
+data_test[, lm_predict3 := predict(lm_model3, data_test)]
+data_test[, lm_predict4 := predict(lm_model4, data_test)]
+```
+
+We hypothesise that the ridge regression will provide better predictions in our case since most predictors should impact price. But we will try lasso nevertheless, to be thorough. 
+
+```{r,include=FALSE}
+# Using regularization models to train the prediction model
+set.seed(1215)
+y <- data_train$price
+
+# Model 1
+X1 <- model.matrix(model_formula1, data = data_train)[,-1]
+X1_test <- model.matrix(model_formula1, data =  data_test)[,-1]
+ridge1 <- cv.glmnet(X1,y,alpha=0,nfolds=5)
+data_test[, "ridge_predict1":=predict(ridge1, s = "lambda.min", newx =  X1_test)]
+lasso1 <- cv.glmnet(X1,y,alpha=1,nfolds=5)
+data_test[, "lasso_predict1":=predict(lasso1, s = "lambda.min", newx =  X1_test)]
+
+# Model 2
+X2 <- model.matrix(model_formula2, data = data_train)[,-1]
+X2_test <- model.matrix(model_formula2, data =  data_test)[,-1]
+ridge2 <- cv.glmnet(X2,y,alpha=0,nfolds=5)
+data_test[, "ridge_predict2":=predict(ridge2, s = "lambda.min", newx =  X2_test)]
+lasso2 <- cv.glmnet(X2,y,alpha=1,nfolds=5)
+data_test[, "lasso_predict2":=predict(lasso2, s = "lambda.min", newx =  X2_test)]
+
+# Model 3
+X3 <- model.matrix(model_formula3, data = data_train)[,-1]
+X3_test <- model.matrix(model_formula3, data =  data_test)[,-1]
+ridge3 <- cv.glmnet(X3,y,alpha=0,nfolds=5)
+data_test[, "ridge_predict3":=predict(ridge3, s = "lambda.min", newx =  X3_test)]
+lasso3 <- cv.glmnet(X3,y,alpha=1,nfolds=5)
+data_test[, "lasso_predict3":=predict(lasso3, s = "lambda.min", newx =  X3_test)]
+
+# Model 4
+X4 <- model.matrix(model_formula4, data = data_train)[,-1]
+X4_test <- model.matrix(model_formula4, data =  data_test)[,-1]
+ridge4 <- cv.glmnet(X4,y,alpha=0,nfolds=5)
+data_test[, "ridge_predict4":=predict(ridge4, s = "lambda.min", newx =  X4_test)]
+lasso4 <- cv.glmnet(X4,y,alpha=1,nfolds=5)
+data_test[, "lasso_predict4":=predict(lasso4, s = "lambda.min", newx =  X4_test)]
+```
+
+```{r,include=FALSE}
+# Calculating RMSE's
+rmse_lm1 <- rmse(data_test$price,data_test$lm_predict1)
+rmse_lm2 <- rmse(data_test$price,data_test$lm_predict2)
+rmse_lm3 <- rmse(data_test$price,data_test$lm_predict3)
+rmse_lm4 <- rmse(data_test$price,data_test$lm_predict4)
+
+rmse_ridge1 <- rmse(data_test$price,data_test$ridge_predict1)
+rmse_ridge2 <- rmse(data_test$price,data_test$ridge_predict2)
+rmse_ridge3 <- rmse(data_test$price,data_test$ridge_predict3)
+rmse_ridge4 <- rmse(data_test$price,data_test$ridge_predict4)
+
+rmse_lasso1 <- rmse(data_test$price,data_test$lasso_predict1)
+rmse_lasso2 <- rmse(data_test$price,data_test$lasso_predict2)
+rmse_lasso3 <- rmse(data_test$price,data_test$lasso_predict3)
+rmse_lasso4 <- rmse(data_test$price,data_test$lasso_predict4)
+
+rmse_lm <- c(rmse_lm1,rmse_lm2,rmse_lm3,rmse_lm4)
+rmse_ridge <- c(rmse_ridge1,rmse_ridge2,rmse_ridge3,rmse_ridge4)
+rmse_lasso <- c(rmse_lasso1,rmse_lasso2,rmse_lasso3,rmse_lasso4)
+
+rmse <- data.frame(rmse_lm,rmse_ridge,rmse_lasso)
+colnames(rmse) <- c("Linear regression","Ridge regression","Lasso regression")
+row.names(rmse) <- c("All predictors","Room predictors","Host predictors","Review predictors")
+```
+
+```{r,include=TRUE}
+# Comparing RMSE's
+rmse
+```
+
+**The model with the prediction which minimizes the RMSE is the lasso regression including all explanitory variables**
+
+We also compare this model to a random forest regression. However we only do one of these and restrict the number of trees to 100 due to the long running time
+
+```{r,include=FALSE}
+# Checking to see if we can reduce the RMSE with all variables in randomForest
+rf_model1 <- randomForest(model_formula1,data=data_train, ntree=100)
+data_test[, rf_predict1 := predict(rf_model1, data_test)]
+rmse(data_test$price,data_test$rf_predict1)
+```
+
+**The random forest model has the smallest RMSE**
+
+Therefore, lets visualize this model to see where it predicts best
+
+```{r,include=TRUE}
+# Plotting predicted values on observed values of price
+ggplot(data_test, aes(x = price, y =  rf_predict1)) +
+  geom_bin2d(bins = 100) +
+    geom_abline(slope=1,color="red") +
+    labs(
+    title = expression(bold("Prediction accuracy")),
+    subtitle = "Real prices plotted against prices predicted with random forest including all predictors",
+    y = "Predicted price",
+    x = "Real price",
+    fill = "Number of listings"
+  ) +
+  xlim(0,2000)
+
+# The higher the price, the less accurate the prediction. This model is best for the average Airbnb user.
+```
+
+
+```{r,include=FALSE}
+# Another model we can use is a decision tree model.
+# We only used it to visualize the effects:
+
+train_proportion <- 0.8
+n <- nrow(data)
+set.seed(20211020)
+train_index <- sample(1:n, floor(n * train_proportion))
+
+data_train <- data[train_index,]
+data_test <- data[-train_index,]
+#Changing the variable names for more visible graphs:
+names(data_train) <- c("id", "listing_url", "scrape_id", "last_scraped", "name", "description", "neighborhood_overview", "picture_url", "host_id", "host_url", "host_name", "host_since", "host_location", "host_about", "host_response_time", "Host response rate", "Host acceptance rate", "Host is superhost", "host_thumbnail_url", "host_picture_url", "host_neighbourhood", "Host listings count", "host_total_listings_count", "host_verifications", "Host has profile pic", "Host identity verified", "neighbourhood", "neighbourhood_cleansed", "neighbourhood_group_cleansed", "latitude", "longitude", "property_type", "room_type", "Accommodates", "Bathrooms", "bathrooms_text", "Bedrooms", "Beds", "amenities", "Price", "minimum_nights", "maximum_nights", "minimum_minimum_nights", "maximum_minimum_nights", "minimum_maximum_nights", "maximum_maximum_nights", "minimum_nights_avg_ntm", "maximum_nights_avg_ntm", "calendar_updated", "has_availability", "availability_30", "availability_60", "availability_90", "availability_365", "calendar_last_scraped", "number_of_reviews", "Number of reviews (last 12 months)", "number_of_reviews_l30d", "first_review", "last_review", "Review scores rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value", "license", "instant_bookable", "calculated_host_listings_count", "calculated_host_listings_count_entire_homes", "calculated_host_listings_count_private_rooms", "calculated_host_listings_count_shared_rooms", "reviews_per_month", "Is entire home/apt?", "Is private room?", "Is hotel room?", "Is shared room?", "Host since days", "Distance", "Sentiment score", "price.y")
+
+# By including different variables, we can see different decision trees with the effects on prices:
+price_tree <- rpart(
+  Price ~ `Host since days` +
+    `Host response rate` +
+    `Host acceptance rate` +
+    `Host is superhost` +
+    `Host listings count` +
+    `Host has profile pic` +
+    `Host identity verified` +
+    `Is entire home/apt?` +
+    `Is private room?` +
+    `Is hotel room?` +
+    `Is shared room?` +
+    `Accommodates` +
+    `Bathrooms` +
+    `Bedrooms` +
+    `Beds` +
+    `Number of reviews (last 12 months)` +
+    `Review scores rating` +
+    `Distance` +
+    `Sentiment score`,
+  data = data_train
+)
+```
+
+```{r,include=TRUE}
+# Creating decision tree
+fancyRpartPlot(price_tree, main = "Classification tree", sub = "", palettes = "Blues")
+```
+
+
+
+
+
+
+
+
+
+
