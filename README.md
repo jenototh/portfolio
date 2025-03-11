@@ -3,7 +3,8 @@
 Welcome to my portfolio! Here you'll find various projects I've worked on during my university studies and ongoing independent work. Below is an organized overview of my projects, including brief descriptions and the tools I used.
 
 ## Table of Contents
-- [Theses](#theses)
+- [Bachelor's Thesis](#bachelors-thesis)
+- [Master's Thesis](#masters-thesis)
 - [Uncovering Sentiment Patterns in ChatGPT](#uncovering-sentiment-patterns-in-chatgpt)
 - [ML Classifiers to Detect Gender and Age Based on Chest X-Ray Images](#ml-classifiers-to-detect-gender-and-age-based-on-chest-x-ray-images)
 - [Predicting Phishing URLs Using Random Forest and Neural Network Classifiers](#predicting-phishing-urls-using-random-forest-and-neural-network-classifiers)
@@ -12,14 +13,12 @@ Welcome to my portfolio! Here you'll find various projects I've worked on during
 - [Predicting New York City Airbnb Prices](#predicting-new-york-city-airbnb-prices)
 
 
-### Theses
 
-
-#### [Bachelor's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/bsc_thesis.pdf)
+### [Bachelor's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/bsc_thesis.pdf)
 
 
 
-#### [Master's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/msc_thesis_no_appendix.pdf)
+### [Master's Thesis](https://github.com/jenototh/portfolio/blob/main/university-projects/theses/msc_thesis_no_appendix.pdf)
 
 
 
