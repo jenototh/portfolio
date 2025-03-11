@@ -7,8 +7,8 @@ Welcome to my portfolio! Here you'll find various projects I've worked on during
 - [Uncovering Sentiment Patterns in ChatGPT](#uncovering-sentiment-patterns-in-chatgpt)
 - [ML Classifiers to Detect Gender and Age Based on Chest X-Ray Images](#ml-classifiers-to-detect-gender-and-age-based-on-chest-x-ray-images)
 - [Predicting Phishing URLs Using Random Forest and Neural Network Classifiers](#predicting-phishing-urls-using-random-forest-and-neural-network-classifiers)
-- [Analyzing and Forecasting Inflation Rates in Hungary, Italy and Spain](#analyzing-and-forecasting-inflation-rates-in-hungary,-italy-and-spain)
-- [Analyzing the "Excitement" Levels of Formula 1 Tracks](#analyzing-the-"excitement"-levels-of-formula-1-tracks)
+- [Analyzing and Forecasting Inflation Rates in Hungary, Italy and Spain](#analyzing-and-forecasting-inflation-rates-in-hungary-italy-and-spain)
+- [Analyzing the "Excitement" Levels of Formula 1 Tracks](#analyzing-the-excitement-levels-of-formula-1-tracks)
 - [Predicting New York City Airbnb Prices](#predicting-new-york-city-airbnb-prices)
 
 
