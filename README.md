@@ -50,13 +50,18 @@ This project was for my Predictive Analytics course. In it, I analyzed 3 Europea
 
 Tools used: Python (TensorFlow, Scikit-learn)
 
-This project was for my Cybersecurity Foundations and Analytics. 
+This project was for my Cybersecurity Foundations and Analytics. In it, we tried to build a classifier to detect if a URL is benign or if it is a phishing link. For this, we used a large labelled dataset, and build a number of models (both RF and NN) in order to see which performs the best.
 
 
 ### [Analyzing the "Excitement" Levels of Formula 1 Tracks](https://github.com/jenototh/portfolio/tree/main/university-projects/formula1-circuit-analysis)
 
+Tools used: Tableau, SQL, Alteryx
+
+This group project was for my Visual Analytics course. The main task was to build dashboards related to our data. We extended this by introducing new metrics from our events (such as takeovers, maximum speed, etc.) and create new variables to see which Formula 1 track is the most "exciting".
 
 
 ### [Predicting New York City Airbnb Prices](https://github.com/jenototh/portfolio/tree/main/university-projects/NY-Airbnb)
 
+Tools used: R, SQL
 
+This project was for my Bachelor's degree's Data Science course. We analyzed the currently available ~35000 AirBnB listings with over 70 variables in order to create a Random Forest model to predict what the nightly price should be for a listing.
